@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>二维 / 三维场景标定</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.127/Build/Cesium/Widgets/widgets.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="workspace">
+    <section class="pane pane-2d" aria-label="二维场景">
+      <header class="pane-header">
+        <div><span class="eyebrow">PLAN VIEW</span><h1>二维场景</h1></div>
+        <div class="toolbar">
+          <input id="floorPlanInput" type="file" accept="image/*,.svg" hidden>
+          <button id="uploadPlanButton" class="primary" type="button">上传平面图</button>
+          <button id="resetPlanButton" type="button" disabled>复位视图</button>
+        </div>
+      </header>
+      <div id="planStage" class="plan-stage" tabindex="0">
+        <div id="emptyPlan" class="empty-state">
+          <div class="upload-icon">＋</div><h2>上传二维平面图</h2>
+          <p>点击选择或拖拽 PNG、JPG、WebP、SVG 图片</p><small>滚轮缩放 · 拖动平移 · 双击复位</small>
+        </div>
+        <img id="floorPlan" alt="用户上传的二维平面图">
+        <div id="planInfo" class="plan-info" hidden></div>
+      </div>
+    </section>
+
+    <section class="pane pane-3d" aria-label="三维场景">
+      <header class="pane-header pane-header-dark">
+        <div><span class="eyebrow">3D VIEW</span><h1>三维场景</h1></div>
+        <span id="sceneStatus" class="scene-status">正在初始化</span>
+      </header>
+      <div class="scene-wrap">
+        <div id="OSGBLab_Container"></div>
+        <aside id="tilesetPanel" class="floating-panel panel-left"><b>三维图层</b><div id="tilesetList"></div></aside>
+        <aside id="viewPointPanel" class="floating-panel panel-left panel-viewpoints"><b>兴趣点</b><div id="viewPointList"></div></aside>
+        <aside id="tunnelClipPanel" class="floating-panel panel-right">
+          <b>隧道 Z 裁切</b>
+          <label class="clip-row"><input id="tunnelClipEnabled" type="checkbox" checked>启用裁切</label>
+          <div class="clip-row"><input id="tunnelClipSlider" type="range" min="-1" max="50" step="0.1" value="10"><input id="tunnelClipValue" type="number" step="0.1" value="0"><span>m</span></div>
+          <small>0 = tileset 裁切坐标原点</small>
+        </aside>
+        <div id="modelDialog" class="dialog" hidden>
+          <h3>加载 GLTF / GLB 模型</h3><input id="gltfFile" type="file" accept=".glb,.gltf">
+          <div class="dialog-actions"><button id="cancelModel">取消</button><button id="loadModel" class="primary">加载</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.127/Build/Cesium/Cesium.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
