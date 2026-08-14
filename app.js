@@ -24,7 +24,8 @@
 				invertY: document.getElementById("deviceInvertY")
 			};
 			let objectUrl = null, viewScale = 1, viewOffsetX = 0, viewOffsetY = 0;
-			let devices = [], dragging = false, startX = 0, startY = 0;
+			let devices = [], csvHeaders = [], csvFileName = "devices.csv";
+			let dragging = false, startX = 0, startY = 0;
 
 			// Applications may replace this function to integrate their own device detail UI.
 			window.onDevicePointClick = window.onDevicePointClick || function (point) {
@@ -191,10 +192,34 @@
 					}
 					return point;
 				}).filter(Boolean);
+				csvHeaders = headers;
+				csvFileName = file.name;
+				document.getElementById("downloadDevicesButton").disabled = false;
 				const positionedCount = devices.filter(point => point.lng !== null && point.lat !== null && point.alt !== null).length;
 				message.textContent = `已导入 ${devices.length} 个点位，其中 ${positionedCount} 个具有三维坐标${invalid ? `，跳过 ${invalid} 行无效平面坐标` : ""}。`;
 				renderDevices();
-				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: devices.map(point => ({ ...point })) } }));
+				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: devices.map((point, sourceIndex) => ({ ...point, sourceIndex })) } }));
+			}
+
+			function csvCell(value) {
+				const text = value === null || value === undefined ? "" : String(value);
+				return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+			}
+
+			function downloadUpdatedDevices() {
+				if (!devices.length || !csvHeaders.length) return;
+				const lines = [csvHeaders.map(csvCell).join(",")];
+				devices.forEach(point => lines.push(csvHeaders.map(header => csvCell(point[header])).join(",")));
+				const blob = new Blob(["\uFEFF", lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+				const url = URL.createObjectURL(blob);
+				const link = document.createElement("a");
+				link.href = url;
+				link.download = `${csvFileName.replace(/\.csv$/i, "")}_updated.csv`;
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				URL.revokeObjectURL(url);
+				message.textContent = `已下载 ${devices.length} 个更新后的设备点位。`;
 			}
 
 			function loadPlan(file) {
@@ -215,12 +240,22 @@
 
 			document.getElementById("uploadPlanButton").addEventListener("click", () => planInput.click());
 			document.getElementById("uploadDevicesButton").addEventListener("click", () => csvInput.click());
+			document.getElementById("downloadDevicesButton").addEventListener("click", downloadUpdatedDevices);
 			planInput.addEventListener("change", event => loadPlan(event.target.files[0]));
 			csvInput.addEventListener("change", event => loadDevices(event.target.files[0]));
 			document.getElementById("resetPlanButton").addEventListener("click", resetView);
 			document.getElementById("clearDevicesButton").addEventListener("click", function () {
-				devices = []; csvInput.value = ""; message.textContent = "已清空设备点位。"; renderDevices();
+				devices = []; csvHeaders = []; csvInput.value = ""; message.textContent = "已清空设备点位。"; renderDevices();
+				document.getElementById("downloadDevicesButton").disabled = true;
 				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: [] } }));
+			});
+			window.addEventListener("devicepositionupdated", event => {
+				const update = event.detail || {};
+				let point = Number.isInteger(update.sourceIndex) ? devices[update.sourceIndex] : undefined;
+				if (!point || String(point.id) !== String(update.id)) point = devices.find(item => String(item.id) === String(update.id));
+				if (!point) return;
+				point.lng = update.lng; point.lat = update.lat; point.alt = update.alt;
+				message.textContent = `设备 ${point.id} 的三维坐标已更新：${update.lng.toFixed(8)}, ${update.lat.toFixed(8)}, ${update.alt.toFixed(3)} m`;
 			});
 			document.getElementById("saveCalibrationButton").addEventListener("click", function () {
 				saveCalibration(true);
@@ -292,7 +327,9 @@
 		let tunnelClipPlane = null;
 		let tunnelClipTileset = null;
 		let deviceEntitiesById = new Map();
+		let deviceEntityMetadata = new Map();
 		let selectedDeviceEntities = [];
+		let activeDeviceEntity = null;
 		//
 		// disable Cesium ion
 		//
@@ -377,7 +414,10 @@
 		function clearDeviceEntities() {
 			deviceEntitiesById.forEach(entities => entities.forEach(entity => viewer.entities.remove(entity)));
 			deviceEntitiesById.clear();
+			deviceEntityMetadata.clear();
 			selectedDeviceEntities = [];
+			activeDeviceEntity = null;
+			if (typeof deviceGizmo !== "undefined") hideDeviceGizmo();
 		}
 
 		function addDeviceEntities(points) {
@@ -407,6 +447,7 @@
 					},
 					properties: { devicePoint: point }
 				});
+				deviceEntityMetadata.set(entity.id, { point, sourceIndex: point.sourceIndex });
 				const entities = deviceEntitiesById.get(id) || [];
 				entities.push(entity);
 				deviceEntitiesById.set(id, entities);
@@ -425,6 +466,7 @@
 				entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
 			});
 			if (selectedDeviceEntities.length) {
+				bindDeviceGizmo(selectedDeviceEntities[0]);
 				viewer.flyTo(selectedDeviceEntities[0], {
 					duration: 1.2,
 					offset: new Cesium.HeadingPitchRange(viewer.camera.heading, Cesium.Math.toRadians(-28), 35)
@@ -435,6 +477,75 @@
 
 		window.addEventListener("devicepointsloaded", event => addDeviceEntities(event.detail.points || []));
 		window.addEventListener("devicepointclick", event => focusDeviceEntity(event.detail));
+
+		const { Gizmo, GizmoMode } = CesiumTransformControls;
+		const deviceGizmo = new Gizmo({
+			onGizmoPointerMove() {
+				viewer.scene.requestRender();
+			},
+			onGizmoPointerUp() {
+				if (!activeDeviceEntity) return;
+				const position = activeDeviceEntity.position.getValue(viewer.clock.currentTime);
+				if (!Cesium.defined(position)) return;
+				const cartographic = Cesium.Cartographic.fromCartesian(position);
+				const metadata = deviceEntityMetadata.get(activeDeviceEntity.id);
+				if (!metadata) return;
+				const lng = Cesium.Math.toDegrees(cartographic.longitude);
+				const lat = Cesium.Math.toDegrees(cartographic.latitude);
+				const alt = cartographic.height;
+				metadata.point.lng = lng; metadata.point.lat = lat; metadata.point.alt = alt;
+				window.dispatchEvent(new CustomEvent("devicepositionupdated", {
+					detail: { id: metadata.point.id, sourceIndex: metadata.sourceIndex, lng, lat, alt }
+				}));
+				viewer.scene.requestRender();
+			}
+		});
+
+		function hideDeviceGizmo() {
+			deviceGizmo.setEnabled(false);
+			[deviceGizmo._transPrimitives, deviceGizmo._rotatePrimitives, deviceGizmo._scalePrimitives]
+				.filter(Boolean)
+				.forEach(primitive => primitive._show = false);
+		}
+
+		function bindDeviceGizmo(entity) {
+			if (!entity || !deviceEntityMetadata.has(entity.id)) return;
+			activeDeviceEntity = entity;
+			deviceGizmo.setEnabled(true);
+			deviceGizmo.mountToEntity(entity, viewer);
+			deviceGizmo.setMode(GizmoMode.translate);
+			viewer.scene.requestRender();
+		}
+
+		const deviceSelectionHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+		deviceSelectionHandler.setInputAction(function (movement) {
+			const picked = viewer.scene.pick(movement.position);
+			if (picked && deviceGizmo.isGizmoPrimitive(picked.primitive)) return;
+			const entity = picked && picked.id instanceof Cesium.Entity ? picked.id : null;
+			if (entity && deviceEntityMetadata.has(entity.id)) {
+				selectedDeviceEntities.forEach(item => {
+					item.ellipsoid.material = Cesium.Color.ORANGE;
+					item.ellipsoid.radii = new Cesium.Cartesian3(0.3, 0.3, 0.3);
+				});
+				selectedDeviceEntities = [entity];
+				entity.ellipsoid.material = Cesium.Color.LIME;
+				entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
+				bindDeviceGizmo(entity);
+			} else {
+				activeDeviceEntity = null;
+				hideDeviceGizmo();
+			}
+			viewer.scene.requestRender();
+		}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+		deviceGizmo.attach(viewer);
+		deviceGizmo.setMode(GizmoMode.translate);
+		hideDeviceGizmo();
+
+		window.addEventListener("beforeunload", () => {
+			deviceSelectionHandler.destroy();
+			deviceGizmo.detach();
+		});
 
 		viewer.scene.globe.depthTestAgainstTerrain = false;
 
