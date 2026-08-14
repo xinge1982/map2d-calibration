@@ -14,7 +14,9 @@
         <div><span class="eyebrow">PLAN VIEW</span><h1>二维场景</h1></div>
         <div class="toolbar">
           <input id="floorPlanInput" type="file" accept="image/*,.svg" hidden>
+          <input id="deviceCsvInput" type="file" accept=".csv,text/csv" hidden>
           <button id="uploadPlanButton" class="primary" type="button">上传平面图</button>
+          <button id="uploadDevicesButton" type="button">上传设备点位</button>
           <button id="resetPlanButton" type="button" disabled>复位视图</button>
         </div>
       </header>
@@ -23,7 +25,31 @@
           <div class="upload-icon">＋</div><h2>上传二维平面图</h2>
           <p>点击选择或拖拽 PNG、JPG、WebP、SVG 图片</p><small>滚轮缩放 · 拖动平移 · 双击复位</small>
         </div>
-        <img id="floorPlan" alt="用户上传的二维平面图">
+        <div id="planCanvas" class="plan-canvas">
+          <img id="floorPlan" alt="用户上传的二维平面图">
+          <svg id="deviceOverlay" class="device-overlay" aria-label="设备点位图层"></svg>
+        </div>
+        <aside id="deviceControls" class="device-controls">
+          <div class="control-title"><b>设备点位标定</b><span id="deviceCount">未导入</span></div>
+          <div class="calibration-grid">
+            <label>X 偏移<input id="deviceOffsetX" type="number" value="0" step="1"></label>
+            <label>Y 偏移<input id="deviceOffsetY" type="number" value="0" step="1"></label>
+            <label>X 缩放<input id="deviceScaleX" type="number" value="1" step="0.01"></label>
+            <label>Y 缩放<input id="deviceScaleY" type="number" value="1" step="0.01"></label>
+          </div>
+          <label class="check-row"><input id="deviceInvertY" type="checkbox">翻转 Y 轴</label>
+          <div class="filter-row">
+            <select id="deviceFilterField" aria-label="过滤字段">
+              <option value="id">id</option><option value="vc_dev_id">vc_dev_id</option>
+              <option value="sblx">sblx</option><option value="sbmc">sbmc</option>
+              <option value="fx">fx</option><option value="zh">zh</option>
+              <option value="sswz">sswz</option><option value="x">x</option><option value="y">y</option>
+            </select>
+            <input id="deviceFilterValue" type="search" placeholder="输入包含内容" aria-label="过滤内容">
+          </div>
+          <div class="control-actions"><button id="resetCalibrationButton" type="button">重置标定</button><button id="clearDevicesButton" type="button">清空点位</button></div>
+          <div id="deviceMessage" class="device-message" aria-live="polite"></div>
+        </aside>
         <div id="planInfo" class="plan-info" hidden></div>
       </div>
     </section>
