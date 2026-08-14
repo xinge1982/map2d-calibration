@@ -200,8 +200,93 @@
 				csvHeaders = headers;
 				csvFileName = file.name;
 				document.getElementById("downloadDevicesButton").disabled = false;
+				document.getElementById("autoFillCoordinatesButton").disabled = false;
 				const positionedCount = devices.filter(point => point.lng !== null && point.lat !== null && point.alt !== null).length;
 				message.textContent = `已导入 ${devices.length} 个点位，其中 ${positionedCount} 个具有三维坐标${invalid ? `，跳过 ${invalid} 行无效平面坐标` : ""}。`;
+				renderDevices();
+				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: devices.map((point, sourceIndex) => ({ ...point, sourceIndex })) } }));
+			}
+
+			function solveLinear3(matrix, values) {
+				const rows = matrix.map((row, index) => [...row, values[index]]);
+				for (let column = 0; column < 3; column++) {
+					let pivot = column;
+					for (let row = column + 1; row < 3; row++) {
+						if (Math.abs(rows[row][column]) > Math.abs(rows[pivot][column])) pivot = row;
+					}
+					if (Math.abs(rows[pivot][column]) < 1e-10) return null;
+					[rows[column], rows[pivot]] = [rows[pivot], rows[column]];
+					const divisor = rows[column][column];
+					for (let item = column; item < 4; item++) rows[column][item] /= divisor;
+					for (let row = 0; row < 3; row++) {
+						if (row === column) continue;
+						const factor = rows[row][column];
+						for (let item = column; item < 4; item++) rows[row][item] -= factor * rows[column][item];
+					}
+				}
+				return rows.map(row => row[3]);
+			}
+
+			function createAffineFitter(controlPoints) {
+				const meanX = controlPoints.reduce((sum, point) => sum + point.x, 0) / controlPoints.length;
+				const meanY = controlPoints.reduce((sum, point) => sum + point.y, 0) / controlPoints.length;
+				const rangeX = Math.max(...controlPoints.map(point => Math.abs(point.x - meanX)), 1);
+				const rangeY = Math.max(...controlPoints.map(point => Math.abs(point.y - meanY)), 1);
+				const rows = controlPoints.map(point => [(point.x - meanX) / rangeX, (point.y - meanY) / rangeY, 1]);
+				const normal = Array.from({ length: 3 }, (_, row) => Array.from({ length: 3 }, (_, column) => rows.reduce((sum, values) => sum + values[row] * values[column], 0)));
+				function coefficients(getValue) {
+					const right = Array.from({ length: 3 }, (_, column) => rows.reduce((sum, values, index) => sum + values[column] * getValue(controlPoints[index]), 0));
+					return solveLinear3(normal, right);
+				}
+				const east = coefficients(point => point.local.x);
+				const north = coefficients(point => point.local.y);
+				const up = coefficients(point => point.local.z);
+				if (!east || !north || !up) return null;
+				return point => {
+					const values = [(point.x - meanX) / rangeX, (point.y - meanY) / rangeY, 1];
+					const evaluate = terms => terms.reduce((sum, value, index) => sum + value * values[index], 0);
+					return new Cesium.Cartesian3(evaluate(east), evaluate(north), evaluate(up));
+				};
+			}
+
+			function autoFillDeviceCoordinates() {
+				const filtered = visibleDevices();
+				const known = filtered.filter(point => Number.isFinite(point.lng) && Number.isFinite(point.lat) && Number.isFinite(point.alt));
+				const targets = filtered.filter(point => !Number.isFinite(point.lng) || !Number.isFinite(point.lat) || !Number.isFinite(point.alt));
+				if (known.length < 3) {
+					message.textContent = `当前过滤结果中只有 ${known.length} 个有效三维控制点，至少需要 3 个。`;
+					return;
+				}
+				if (!targets.length) {
+					message.textContent = "当前过滤结果中的设备均已有三维坐标。";
+					return;
+				}
+
+				const origin = Cesium.Cartesian3.fromDegrees(known[0].lng, known[0].lat, known[0].alt);
+				const localToFixed = Cesium.Transforms.eastNorthUpToFixedFrame(origin);
+				const fixedToLocal = Cesium.Matrix4.inverseTransformation(localToFixed, new Cesium.Matrix4());
+				const controls = known.map(point => ({
+					...point,
+					local: Cesium.Matrix4.multiplyByPoint(
+						fixedToLocal,
+						Cesium.Cartesian3.fromDegrees(point.lng, point.lat, point.alt),
+						new Cesium.Cartesian3()
+					)
+				}));
+				const predict = createAffineFitter(controls);
+				if (!predict) {
+					message.textContent = "控制点在平面图中共线或过于集中，无法计算稳定的仿射关系。";
+					return;
+				}
+
+				targets.forEach(point => {
+					const fixed = Cesium.Matrix4.multiplyByPoint(localToFixed, predict(point), new Cesium.Cartesian3());
+					const cartographic = Cesium.Cartographic.fromCartesian(fixed);
+					point.lng = Cesium.Math.toDegrees(cartographic.longitude);
+					point.lat = Cesium.Math.toDegrees(cartographic.latitude);
+					point.alt = cartographic.height;
+				});
+				message.textContent = `已使用 ${known.length} 个控制点，为当前过滤结果中的 ${targets.length} 个设备补充三维坐标。`;
 				renderDevices();
 				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: devices.map((point, sourceIndex) => ({ ...point, sourceIndex })) } }));
 			}
@@ -246,12 +331,14 @@
 			document.getElementById("uploadPlanButton").addEventListener("click", () => planInput.click());
 			document.getElementById("uploadDevicesButton").addEventListener("click", () => csvInput.click());
 			document.getElementById("downloadDevicesButton").addEventListener("click", downloadUpdatedDevices);
+			document.getElementById("autoFillCoordinatesButton").addEventListener("click", autoFillDeviceCoordinates);
 			planInput.addEventListener("change", event => loadPlan(event.target.files[0]));
 			csvInput.addEventListener("change", event => loadDevices(event.target.files[0]));
 			document.getElementById("resetPlanButton").addEventListener("click", resetView);
 			document.getElementById("clearDevicesButton").addEventListener("click", function () {
 				devices = []; csvHeaders = []; csvInput.value = ""; message.textContent = "已清空设备点位。"; renderDevices();
 				document.getElementById("downloadDevicesButton").disabled = true;
+				document.getElementById("autoFillCoordinatesButton").disabled = true;
 				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: [] } }));
 			});
 			window.addEventListener("devicepositionupdated", event => {
