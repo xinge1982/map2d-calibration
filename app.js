@@ -333,6 +333,47 @@
 		document.getElementById("sceneStatus").textContent = "场景已初始化";
 		document.getElementById("sceneStatus").style.color = "#75e8cf";
 
+		function pickPositionStable(screenPosition) {
+			const scene = viewer.scene;
+			try {
+				const canvas = viewer.canvas;
+				if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return undefined;
+
+				const picked = scene.pick(screenPosition);
+				if (picked && scene.pickPositionSupported) {
+					const modelPosition = scene.pickPosition(screenPosition);
+					if (Cesium.defined(modelPosition)) return modelPosition;
+				}
+
+				const ray = viewer.camera.getPickRay(screenPosition);
+				if (ray) return scene.globe.pick(ray, scene);
+			} catch (error) {
+				console.warn("Unable to pick mouse position:", error);
+			}
+			return undefined;
+		}
+
+		function updateMouseCoordinates(cartesian) {
+			const longitudeElement = document.getElementById("mouseLongitude");
+			const latitudeElement = document.getElementById("mouseLatitude");
+			const altitudeElement = document.getElementById("mouseAltitude");
+			if (!Cesium.defined(cartesian)) {
+				longitudeElement.textContent = "—";
+				latitudeElement.textContent = "—";
+				altitudeElement.textContent = "—";
+				return;
+			}
+			const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+			longitudeElement.textContent = `${Cesium.Math.toDegrees(cartographic.longitude).toFixed(8)}°`;
+			latitudeElement.textContent = `${Cesium.Math.toDegrees(cartographic.latitude).toFixed(8)}°`;
+			altitudeElement.textContent = `${cartographic.height.toFixed(3)} m`;
+		}
+
+		const mousePositionHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+		mousePositionHandler.setInputAction(function (movement) {
+			updateMouseCoordinates(pickPositionStable(movement.endPosition));
+		}, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
 		function clearDeviceEntities() {
 			deviceEntitiesById.forEach(entities => entities.forEach(entity => viewer.entities.remove(entity)));
 			deviceEntitiesById.clear();
