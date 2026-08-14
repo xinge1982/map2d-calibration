@@ -1,7 +1,7 @@
 
 		// 2D floor-plan and device calibration viewer
 		(function initializeFloorPlanViewer() {
-			const requiredFields = ["id", "vc_dev_id", "sblx", "sbmc", "fx", "zh", "sswz", "x", "y"];
+			const requiredFields = ["id", "vc_dev_id", "sblx", "sbmc", "fx", "zh", "sswz", "x", "y", "lng", "lat", "alt"];
 			const calibrationStorageKey = "map2d-calibration.device-transform.v1";
 			const svgNamespace = "http://www.w3.org/2000/svg";
 			const stage = document.getElementById("planStage");
@@ -182,10 +182,19 @@
 					headers.forEach((header, index) => point[header] = (columns[index] ?? "").trim());
 					point.x = Number(point.x); point.y = Number(point.y);
 					if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) { invalid++; return null; }
+					const hasGeoPosition = point.lng !== "" && point.lat !== "" && point.alt !== "";
+					const lng = Number(point.lng), lat = Number(point.lat), alt = Number(point.alt);
+					if (hasGeoPosition && Number.isFinite(lng) && Number.isFinite(lat) && Number.isFinite(alt) && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+						point.lng = lng; point.lat = lat; point.alt = alt;
+					} else {
+						point.lng = null; point.lat = null; point.alt = null;
+					}
 					return point;
 				}).filter(Boolean);
-				message.textContent = `已导入 ${devices.length} 个点位${invalid ? `，跳过 ${invalid} 行无效坐标` : ""}。`;
+				const positionedCount = devices.filter(point => point.lng !== null && point.lat !== null && point.alt !== null).length;
+				message.textContent = `已导入 ${devices.length} 个点位，其中 ${positionedCount} 个具有三维坐标${invalid ? `，跳过 ${invalid} 行无效平面坐标` : ""}。`;
 				renderDevices();
+				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: devices.map(point => ({ ...point })) } }));
 			}
 
 			function loadPlan(file) {
@@ -211,6 +220,7 @@
 			document.getElementById("resetPlanButton").addEventListener("click", resetView);
 			document.getElementById("clearDevicesButton").addEventListener("click", function () {
 				devices = []; csvInput.value = ""; message.textContent = "已清空设备点位。"; renderDevices();
+				window.dispatchEvent(new CustomEvent("devicepointsloaded", { detail: { points: [] } }));
 			});
 			document.getElementById("saveCalibrationButton").addEventListener("click", function () {
 				saveCalibration(true);
@@ -281,6 +291,8 @@
 		let hiddenFeaturesCache = {};
 		let tunnelClipPlane = null;
 		let tunnelClipTileset = null;
+		let deviceEntitiesById = new Map();
+		let selectedDeviceEntities = [];
 		//
 		// disable Cesium ion
 		//
@@ -320,6 +332,68 @@
 
 		document.getElementById("sceneStatus").textContent = "场景已初始化";
 		document.getElementById("sceneStatus").style.color = "#75e8cf";
+
+		function clearDeviceEntities() {
+			deviceEntitiesById.forEach(entities => entities.forEach(entity => viewer.entities.remove(entity)));
+			deviceEntitiesById.clear();
+			selectedDeviceEntities = [];
+		}
+
+		function addDeviceEntities(points) {
+			clearDeviceEntities();
+			points.forEach((point, index) => {
+				if (!Number.isFinite(point.lng) || !Number.isFinite(point.lat) || !Number.isFinite(point.alt)) return;
+				const id = String(point.id);
+				const entity = viewer.entities.add({
+					id: `device-point-${index}-${id}`,
+					position: Cesium.Cartesian3.fromDegrees(point.lng, point.lat, point.alt),
+					ellipsoid: {
+						radii: new Cesium.Cartesian3(1.5, 1.5, 1.5),
+						material: Cesium.Color.ORANGE,
+						outline: true,
+						outlineColor: Cesium.Color.WHITE
+					},
+					label: {
+						text: id,
+						font: "bold 14px sans-serif",
+						fillColor: Cesium.Color.WHITE,
+						outlineColor: Cesium.Color.BLACK,
+						outlineWidth: 3,
+						style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+						pixelOffset: new Cesium.Cartesian2(0, -18),
+						verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+						disableDepthTestDistance: Number.POSITIVE_INFINITY
+					},
+					properties: { devicePoint: point }
+				});
+				const entities = deviceEntitiesById.get(id) || [];
+				entities.push(entity);
+				deviceEntitiesById.set(id, entities);
+			});
+			viewer.scene.requestRender();
+		}
+
+		function focusDeviceEntity(point) {
+			selectedDeviceEntities.forEach(entity => {
+				entity.ellipsoid.material = Cesium.Color.ORANGE;
+				entity.ellipsoid.radii = new Cesium.Cartesian3(1.5, 1.5, 1.5);
+			});
+			selectedDeviceEntities = deviceEntitiesById.get(String(point.id)) || [];
+			selectedDeviceEntities.forEach(entity => {
+				entity.ellipsoid.material = Cesium.Color.LIME;
+				entity.ellipsoid.radii = new Cesium.Cartesian3(2.4, 2.4, 2.4);
+			});
+			if (selectedDeviceEntities.length) {
+				viewer.flyTo(selectedDeviceEntities[0], {
+					duration: 1.2,
+					offset: new Cesium.HeadingPitchRange(viewer.camera.heading, Cesium.Math.toRadians(-28), 35)
+				});
+			}
+			viewer.scene.requestRender();
+		}
+
+		window.addEventListener("devicepointsloaded", event => addDeviceEntities(event.detail.points || []));
+		window.addEventListener("devicepointclick", event => focusDeviceEntity(event.detail));
 
 		viewer.scene.globe.depthTestAgainstTerrain = false;
 
