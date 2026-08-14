@@ -133,7 +133,7 @@
 						event.stopPropagation();
 						overlay.querySelectorAll(".selected").forEach(item => item.classList.remove("selected"));
 						group.classList.add("selected");
-						const detail = { ...point };
+						const detail = { ...point, sourceIndex: devices.indexOf(point) };
 						window.onDevicePointClick(detail);
 						window.dispatchEvent(new CustomEvent("devicepointclick", { detail }));
 					};
@@ -255,7 +255,11 @@
 				if (!point || String(point.id) !== String(update.id)) point = devices.find(item => String(item.id) === String(update.id));
 				if (!point) return;
 				point.lng = update.lng; point.lat = update.lat; point.alt = update.alt;
-				message.textContent = `设备 ${point.id} 的三维坐标已更新：${update.lng.toFixed(8)}, ${update.lat.toFixed(8)}, ${update.alt.toFixed(3)} m`;
+				if (Number.isFinite(update.lng) && Number.isFinite(update.lat) && Number.isFinite(update.alt)) {
+					message.textContent = `设备 ${point.id} 的三维坐标已更新：${update.lng.toFixed(8)}, ${update.lat.toFixed(8)}, ${update.alt.toFixed(3)} m`;
+				} else {
+					message.textContent = `设备 ${point.id} 的三维位置点已删除，经纬度和高程已清空。`;
+				}
 			});
 			document.getElementById("saveCalibrationButton").addEventListener("click", function () {
 				saveCalibration(true);
@@ -330,6 +334,7 @@
 		let deviceEntityMetadata = new Map();
 		let selectedDeviceEntities = [];
 		let activeDeviceEntity = null;
+		let selectedDevicePoint = null;
 		//
 		// disable Cesium ion
 		//
@@ -417,50 +422,63 @@
 			deviceEntityMetadata.clear();
 			selectedDeviceEntities = [];
 			activeDeviceEntity = null;
+			selectedDevicePoint = null;
 			if (typeof deviceGizmo !== "undefined") hideDeviceGizmo();
+			updateDeviceModelActions();
+		}
+
+		function createDeviceEntity(point, index) {
+			if (!Number.isFinite(point.lng) || !Number.isFinite(point.lat) || !Number.isFinite(point.alt)) return null;
+			const id = String(point.id);
+			const entity = viewer.entities.add({
+				id: `device-point-${index}-${id}`,
+				position: Cesium.Cartesian3.fromDegrees(point.lng, point.lat, point.alt),
+				ellipsoid: {
+					radii: new Cesium.Cartesian3(0.3, 0.3, 0.3),
+					material: Cesium.Color.ORANGE,
+					outline: true,
+					outlineColor: Cesium.Color.WHITE
+				},
+				label: {
+					text: id,
+					font: "bold 14px sans-serif",
+					fillColor: Cesium.Color.WHITE,
+					outlineColor: Cesium.Color.BLACK,
+					outlineWidth: 3,
+					style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+					pixelOffset: new Cesium.Cartesian2(0, -18),
+					verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+					disableDepthTestDistance: Number.POSITIVE_INFINITY
+				},
+				properties: { devicePoint: point }
+			});
+			const sourceIndex = Number.isInteger(point.sourceIndex) ? point.sourceIndex : index;
+			point.sourceIndex = sourceIndex;
+			deviceEntityMetadata.set(entity.id, { point, sourceIndex });
+			const entities = deviceEntitiesById.get(id) || [];
+			entities.push(entity);
+			deviceEntitiesById.set(id, entities);
+			return entity;
 		}
 
 		function addDeviceEntities(points) {
 			clearDeviceEntities();
-			points.forEach((point, index) => {
-				if (!Number.isFinite(point.lng) || !Number.isFinite(point.lat) || !Number.isFinite(point.alt)) return;
-				const id = String(point.id);
-				const entity = viewer.entities.add({
-					id: `device-point-${index}-${id}`,
-					position: Cesium.Cartesian3.fromDegrees(point.lng, point.lat, point.alt),
-					ellipsoid: {
-						radii: new Cesium.Cartesian3(0.3, 0.3, 0.3),
-						material: Cesium.Color.ORANGE,
-						outline: true,
-						outlineColor: Cesium.Color.WHITE
-					},
-					label: {
-						text: id,
-						font: "bold 14px sans-serif",
-						fillColor: Cesium.Color.WHITE,
-						outlineColor: Cesium.Color.BLACK,
-						outlineWidth: 3,
-						style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-						pixelOffset: new Cesium.Cartesian2(0, -18),
-						verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-						disableDepthTestDistance: Number.POSITIVE_INFINITY
-					},
-					properties: { devicePoint: point }
-				});
-				deviceEntityMetadata.set(entity.id, { point, sourceIndex: point.sourceIndex });
-				const entities = deviceEntitiesById.get(id) || [];
-				entities.push(entity);
-				deviceEntitiesById.set(id, entities);
-			});
+			points.forEach((point, index) => createDeviceEntity(point, index));
 			viewer.scene.requestRender();
 		}
 
 		function focusDeviceEntity(point) {
+			selectedDevicePoint = point;
 			selectedDeviceEntities.forEach(entity => {
 				entity.ellipsoid.material = Cesium.Color.ORANGE;
 				entity.ellipsoid.radii = new Cesium.Cartesian3(0.3, 0.3, 0.3);
 			});
-			selectedDeviceEntities = deviceEntitiesById.get(String(point.id)) || [];
+			const sameIdEntities = deviceEntitiesById.get(String(point.id)) || [];
+			const exactEntity = sameIdEntities.find(entity => {
+				const metadata = deviceEntityMetadata.get(entity.id);
+				return Number.isInteger(point.sourceIndex) && metadata && metadata.sourceIndex === point.sourceIndex;
+			});
+			selectedDeviceEntities = exactEntity ? [exactEntity] : sameIdEntities.slice(0, 1);
 			selectedDeviceEntities.forEach(entity => {
 				entity.ellipsoid.material = Cesium.Color.LIME;
 				entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
@@ -472,6 +490,7 @@
 					offset: new Cesium.HeadingPitchRange(viewer.camera.heading, Cesium.Math.toRadians(-28), 35)
 				});
 			}
+			updateDeviceModelActions();
 			viewer.scene.requestRender();
 		}
 
@@ -517,12 +536,89 @@
 			viewer.scene.requestRender();
 		}
 
+		function selectedDeviceEntity() {
+			return selectedDeviceEntities.find(entity => deviceEntityMetadata.has(entity.id)) || null;
+		}
+
+		function updateDeviceModelActions() {
+			const idElement = document.getElementById("selectedDeviceId");
+			const addButton = document.getElementById("addDeviceModelButton");
+			const deleteButton = document.getElementById("deleteDeviceModelButton");
+			const entity = selectedDeviceEntity();
+			idElement.textContent = selectedDevicePoint ? String(selectedDevicePoint.id) : "未选择";
+			addButton.disabled = !selectedDevicePoint || Boolean(entity);
+			deleteButton.disabled = !selectedDevicePoint || !entity;
+		}
+
+		function addSelectedDeviceModel() {
+			if (!selectedDevicePoint || selectedDeviceEntity()) return;
+			const position = Cesium.Cartesian3.add(
+				viewer.camera.positionWC,
+				Cesium.Cartesian3.multiplyByScalar(viewer.camera.directionWC, 10, new Cesium.Cartesian3()),
+				new Cesium.Cartesian3()
+			);
+			const cartographic = Cesium.Cartographic.fromCartesian(position);
+			selectedDevicePoint.lng = Cesium.Math.toDegrees(cartographic.longitude);
+			selectedDevicePoint.lat = Cesium.Math.toDegrees(cartographic.latitude);
+			selectedDevicePoint.alt = cartographic.height;
+			const sourceIndex = Number.isInteger(selectedDevicePoint.sourceIndex) ? selectedDevicePoint.sourceIndex : deviceEntityMetadata.size;
+			const entity = createDeviceEntity(selectedDevicePoint, sourceIndex);
+			if (!entity) return;
+			selectedDeviceEntities = [entity];
+			entity.ellipsoid.material = Cesium.Color.LIME;
+			entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
+			bindDeviceGizmo(entity);
+			window.dispatchEvent(new CustomEvent("devicepositionupdated", {
+				detail: {
+					id: selectedDevicePoint.id,
+					sourceIndex: selectedDevicePoint.sourceIndex,
+					lng: selectedDevicePoint.lng,
+					lat: selectedDevicePoint.lat,
+					alt: selectedDevicePoint.alt
+				}
+			}));
+			updateDeviceModelActions();
+			viewer.scene.requestRender();
+		}
+
+		function deleteSelectedDeviceModel() {
+			const entity = selectedDeviceEntity();
+			if (!selectedDevicePoint || !entity) return;
+			const metadata = deviceEntityMetadata.get(entity.id);
+			viewer.entities.remove(entity);
+			deviceEntityMetadata.delete(entity.id);
+			const id = String(selectedDevicePoint.id);
+			const remaining = (deviceEntitiesById.get(id) || []).filter(item => item !== entity);
+			if (remaining.length) deviceEntitiesById.set(id, remaining); else deviceEntitiesById.delete(id);
+			selectedDeviceEntities = [];
+			activeDeviceEntity = null;
+			selectedDevicePoint.lng = null; selectedDevicePoint.lat = null; selectedDevicePoint.alt = null;
+			hideDeviceGizmo();
+			window.dispatchEvent(new CustomEvent("devicepositionupdated", {
+				detail: {
+					id: selectedDevicePoint.id,
+					sourceIndex: metadata ? metadata.sourceIndex : selectedDevicePoint.sourceIndex,
+					lng: null,
+					lat: null,
+					alt: null
+				}
+			}));
+			updateDeviceModelActions();
+			viewer.scene.requestRender();
+		}
+
+		document.getElementById("addDeviceModelButton").addEventListener("click", addSelectedDeviceModel);
+		document.getElementById("deleteDeviceModelButton").addEventListener("click", deleteSelectedDeviceModel);
+		updateDeviceModelActions();
+
 		const deviceSelectionHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
 		deviceSelectionHandler.setInputAction(function (movement) {
 			const picked = viewer.scene.pick(movement.position);
 			if (picked && deviceGizmo.isGizmoPrimitive(picked.primitive)) return;
 			const entity = picked && picked.id instanceof Cesium.Entity ? picked.id : null;
 			if (entity && deviceEntityMetadata.has(entity.id)) {
+				const metadata = deviceEntityMetadata.get(entity.id);
+				selectedDevicePoint = metadata.point;
 				selectedDeviceEntities.forEach(item => {
 					item.ellipsoid.material = Cesium.Color.ORANGE;
 					item.ellipsoid.radii = new Cesium.Cartesian3(0.3, 0.3, 0.3);
@@ -531,6 +627,7 @@
 				entity.ellipsoid.material = Cesium.Color.LIME;
 				entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
 				bindDeviceGizmo(entity);
+				updateDeviceModelActions();
 			} else {
 				activeDeviceEntity = null;
 				hideDeviceGizmo();
