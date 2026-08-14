@@ -2,6 +2,7 @@
 		// 2D floor-plan and device calibration viewer
 		(function initializeFloorPlanViewer() {
 			const requiredFields = ["id", "vc_dev_id", "sblx", "sbmc", "fx", "zh", "sswz", "x", "y"];
+			const calibrationStorageKey = "map2d-calibration.device-transform.v1";
 			const svgNamespace = "http://www.w3.org/2000/svg";
 			const stage = document.getElementById("planStage");
 			const planInput = document.getElementById("floorPlanInput");
@@ -43,6 +44,38 @@
 					scaleY: numberValue(calibrationInputs.scaleY, 1),
 					invertY: calibrationInputs.invertY.checked
 				};
+			}
+
+			function applyCalibration(values) {
+				calibrationInputs.offsetX.value = Number.isFinite(Number(values.offsetX)) ? Number(values.offsetX) : 0;
+				calibrationInputs.offsetY.value = Number.isFinite(Number(values.offsetY)) ? Number(values.offsetY) : 0;
+				calibrationInputs.scaleX.value = Number.isFinite(Number(values.scaleX)) ? Number(values.scaleX) : 1;
+				calibrationInputs.scaleY.value = Number.isFinite(Number(values.scaleY)) ? Number(values.scaleY) : 1;
+				calibrationInputs.invertY.checked = Boolean(values.invertY);
+			}
+
+			function saveCalibration(showMessage) {
+				try {
+					localStorage.setItem(calibrationStorageKey, JSON.stringify(calibration()));
+					if (showMessage) message.textContent = "标定参数已保存，下次打开或导入文件时会自动恢复。";
+				} catch (error) {
+					message.textContent = "浏览器未允许保存标定参数。";
+					console.warn("Unable to save device calibration:", error);
+				}
+			}
+
+			function restoreSavedCalibration() {
+				try {
+					const saved = localStorage.getItem(calibrationStorageKey);
+					if (!saved) return false;
+					applyCalibration(JSON.parse(saved));
+					message.textContent = "已恢复上次保存的标定参数。";
+					return true;
+				} catch (error) {
+					localStorage.removeItem(calibrationStorageKey);
+					console.warn("Unable to restore device calibration:", error);
+					return false;
+				}
 			}
 
 			function renderView() {
@@ -171,12 +204,26 @@
 			document.getElementById("clearDevicesButton").addEventListener("click", function () {
 				devices = []; csvInput.value = ""; message.textContent = "已清空设备点位。"; renderDevices();
 			});
+			document.getElementById("saveCalibrationButton").addEventListener("click", function () {
+				saveCalibration(true);
+			});
+			document.getElementById("clearSavedCalibrationButton").addEventListener("click", function () {
+				try {
+					localStorage.removeItem(calibrationStorageKey);
+					message.textContent = "已清除保存的标定参数，当前显示不变。";
+				} catch (error) {
+					message.textContent = "浏览器未允许清除保存的标定参数。";
+				}
+			});
 			document.getElementById("resetCalibrationButton").addEventListener("click", function () {
 				calibrationInputs.offsetX.value = 0; calibrationInputs.offsetY.value = 0;
 				calibrationInputs.scaleX.value = 1; calibrationInputs.scaleY.value = 1;
 				calibrationInputs.invertY.checked = false; renderDevices();
 			});
-			Object.values(calibrationInputs).forEach(input => input.addEventListener("input", renderDevices));
+			Object.values(calibrationInputs).forEach(input => input.addEventListener("input", function () {
+				renderDevices();
+				saveCalibration(false);
+			}));
 			filterField.addEventListener("change", renderDevices);
 			filterValue.addEventListener("input", renderDevices);
 			stage.addEventListener("dblclick", event => { if (!event.target.closest(".device-controls")) resetView(); });
@@ -208,6 +255,7 @@
 				if (file && file.name.toLowerCase().endsWith(".csv")) loadDevices(file); else loadPlan(file);
 			});
 			window.addEventListener("resize", () => image.naturalWidth && resetView());
+			restoreSavedCalibration();
 		})();
 
 		//
