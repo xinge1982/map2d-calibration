@@ -27,6 +27,7 @@ button.primary { color:#051411; background:var(--accent); border-color:var(--acc
 .device-point .device-dot { fill:#ffcc4d; stroke:#091016; stroke-width:2; vector-effect:non-scaling-stroke; }
 .device-point .device-tag-bg { fill:rgba(7,18,24,.9); stroke:#3dd6b4; stroke-width:1; vector-effect:non-scaling-stroke; }
 .device-point .device-tag-text { fill:#f7ffff; font-size:12px; font-weight:700; dominant-baseline:middle; text-anchor:middle; }
+.device-point .device-tag-name { fill:#bceee4; font-size:10px; font-weight:500; }
 .device-point:hover .device-tag-bg,.device-point.selected .device-tag-bg { fill:#176b5d; stroke:#8fffe7; }
 .device-controls { position:absolute; z-index:5; top:14px; right:14px; width:250px; padding:12px; border:1px solid var(--line); border-radius:10px; background:rgba(7,16,22,.9); box-shadow:0 8px 24px rgba(0,0,0,.3); backdrop-filter:blur(8px); }
 .control-title { display:flex; justify-content:space-between; gap:10px; margin-bottom:10px; }.control-title span{color:var(--accent);font-size:12px}
