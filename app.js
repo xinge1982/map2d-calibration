@@ -113,13 +113,21 @@
 					const rawY = point.y * transform.scaleY + transform.offsetY;
 					const y = transform.invertY && image.naturalHeight ? image.naturalHeight - rawY : rawY;
 					const label = String(point.id);
-					const labelWidth = Math.max(34, label.length * 7 + 14);
-					const group = createSvgElement("g", { class: "device-point", transform: `translate(${x} ${y})`, tabindex: "0", role: "button", "aria-label": `设备 ${label}` });
+					const deviceName = String(point.sbmc || "");
+					const labelWidth = Math.max(34, label.length * 7 + 14, deviceName.length * 7 + 14);
+					const labelHeight = deviceName ? 34 : 20;
+					const labelTop = -labelHeight - 10;
+					const group = createSvgElement("g", { class: "device-point", transform: `translate(${x} ${y})`, tabindex: "0", role: "button", "aria-label": `设备 ${label}${deviceName ? `，${deviceName}` : ""}` });
 					group.appendChild(createSvgElement("circle", { class: "device-dot", cx: 0, cy: 0, r: 5 }));
-					group.appendChild(createSvgElement("rect", { class: "device-tag-bg", x: -labelWidth / 2, y: -30, width: labelWidth, height: 20, rx: 5 }));
-					const text = createSvgElement("text", { class: "device-tag-text", x: 0, y: -20 });
-					text.textContent = label;
-					group.appendChild(text);
+					group.appendChild(createSvgElement("rect", { class: "device-tag-bg", x: -labelWidth / 2, y: labelTop, width: labelWidth, height: labelHeight, rx: 5 }));
+					const idText = createSvgElement("text", { class: "device-tag-text device-tag-id", x: 0, y: deviceName ? -34 : -20 });
+					idText.textContent = label;
+					group.appendChild(idText);
+					if (deviceName) {
+						const nameText = createSvgElement("text", { class: "device-tag-text device-tag-name", x: 0, y: -19 });
+						nameText.textContent = deviceName;
+						group.appendChild(nameText);
+					}
 					const activate = function (event) {
 						event.stopPropagation();
 						overlay.querySelectorAll(".selected").forEach(item => item.classList.remove("selected"));
