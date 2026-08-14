@@ -43,7 +43,9 @@
 					offsetY: numberValue(calibrationInputs.offsetY, 0),
 					scaleX: numberValue(calibrationInputs.scaleX, 1),
 					scaleY: numberValue(calibrationInputs.scaleY, 1),
-					invertY: calibrationInputs.invertY.checked
+					invertY: calibrationInputs.invertY.checked,
+					filterField: filterField.value,
+					filterValue: filterValue.value
 				};
 			}
 
@@ -53,6 +55,9 @@
 				calibrationInputs.scaleX.value = Number.isFinite(Number(values.scaleX)) ? Number(values.scaleX) : 1;
 				calibrationInputs.scaleY.value = Number.isFinite(Number(values.scaleY)) ? Number(values.scaleY) : 1;
 				calibrationInputs.invertY.checked = Boolean(values.invertY);
+				const hasFilterField = Array.from(filterField.options).some(option => option.value === values.filterField);
+				if (hasFilterField) filterField.value = values.filterField;
+				filterValue.value = typeof values.filterValue === "string" ? values.filterValue : "";
 			}
 
 			function saveCalibration(showMessage) {
@@ -281,8 +286,14 @@
 				renderDevices();
 				saveCalibration(false);
 			}));
-			filterField.addEventListener("change", renderDevices);
-			filterValue.addEventListener("input", renderDevices);
+			filterField.addEventListener("change", function () {
+				renderDevices();
+				saveCalibration(false);
+			});
+			filterValue.addEventListener("input", function () {
+				renderDevices();
+				saveCalibration(false);
+			});
 			stage.addEventListener("dblclick", event => { if (!event.target.closest(".device-controls")) resetView(); });
 			stage.addEventListener("wheel", function (event) {
 				if (!image.naturalWidth || event.target.closest(".device-controls")) return;
