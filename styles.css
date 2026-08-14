@@ -12,7 +12,7 @@ button.primary { color:#051411; background:var(--accent); border-color:var(--acc
 .pane-header-dark { background:#0a131a; }
 .pane-header h1 { margin:2px 0 0; font-size:19px; letter-spacing:.02em; }
 .eyebrow { color:var(--accent); font-size:10px; font-weight:800; letter-spacing:.18em; }
-.toolbar { display:flex; gap:8px; }
+.toolbar { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 .plan-stage { position:relative; flex:1; overflow:hidden; display:grid; place-items:center; background-color:#0b141b; background-image:linear-gradient(rgba(61,214,180,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(61,214,180,.055) 1px,transparent 1px); background-size:28px 28px; cursor:grab; outline:none; }
 .plan-stage.dragging { cursor:grabbing; }
 .plan-stage.drop-active { box-shadow:inset 0 0 0 3px var(--accent); }
@@ -20,15 +20,28 @@ button.primary { color:#051411; background:var(--accent); border-color:var(--acc
 .empty-state h2 { margin:14px 0 6px; color:var(--text); font-size:20px; }
 .empty-state p { margin:0 0 8px; }
 .upload-icon { width:58px; height:58px; margin:auto; display:grid; place-items:center; border:1px dashed var(--accent); border-radius:16px; color:var(--accent); font-size:28px; }
-#floorPlan { display:none; max-width:none; transform-origin:center; user-select:none; pointer-events:none; box-shadow:0 18px 60px rgba(0,0,0,.45); }
+.plan-canvas { display:none; position:absolute; left:50%; top:50%; transform-origin:center; user-select:none; }
+#floorPlan { display:block; width:100%; height:100%; pointer-events:none; box-shadow:0 18px 60px rgba(0,0,0,.45); }
+.device-overlay { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+.device-point { pointer-events:auto; cursor:pointer; }
+.device-point .device-dot { fill:#ffcc4d; stroke:#091016; stroke-width:2; vector-effect:non-scaling-stroke; }
+.device-point .device-tag-bg { fill:rgba(7,18,24,.9); stroke:#3dd6b4; stroke-width:1; vector-effect:non-scaling-stroke; }
+.device-point .device-tag-text { fill:#f7ffff; font-size:12px; font-weight:700; dominant-baseline:middle; text-anchor:middle; }
+.device-point:hover .device-tag-bg,.device-point.selected .device-tag-bg { fill:#176b5d; stroke:#8fffe7; }
+.device-controls { position:absolute; z-index:5; top:14px; right:14px; width:250px; padding:12px; border:1px solid var(--line); border-radius:10px; background:rgba(7,16,22,.9); box-shadow:0 8px 24px rgba(0,0,0,.3); backdrop-filter:blur(8px); }
+.control-title { display:flex; justify-content:space-between; gap:10px; margin-bottom:10px; }.control-title span{color:var(--accent);font-size:12px}
+.calibration-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }.calibration-grid label{color:var(--muted);font-size:11px}.calibration-grid input{width:100%;margin-top:4px}
+.device-controls input,.device-controls select { min-width:0; padding:7px 8px; border:1px solid var(--line); border-radius:6px; color:var(--text); background:#111f29; }
+.check-row { display:flex; align-items:center; gap:7px; margin:9px 0; color:var(--muted); font-size:12px; }
+.filter-row { display:grid; grid-template-columns:92px 1fr; gap:7px; }.control-actions{display:flex;gap:7px;margin-top:9px}.control-actions button{flex:1;padding:6px;font-size:12px}.device-message{min-height:16px;margin-top:8px;color:var(--muted);font-size:11px;line-height:1.4}
 .plan-info { position:absolute; left:14px; bottom:14px; border:1px solid var(--line); border-radius:7px; padding:7px 10px; color:var(--muted); background:rgba(7,13,18,.82); font-size:12px; }
 .scene-wrap { position:relative; flex:1; min-height:0; overflow:hidden; }
 #OSGBLab_Container { position:absolute; inset:0; }
 .floating-panel { position:absolute; z-index:10; width:220px; max-height:calc(50% - 20px); overflow:auto; padding:12px; border:1px solid rgba(255,255,255,.22); border-radius:10px; color:#1c2930; background:rgba(247,251,252,.92); box-shadow:0 8px 26px rgba(0,0,0,.25); backdrop-filter:blur(8px); font-size:13px; }
-.panel-left { top:14px; left:14px; }.panel-viewpoints { top:auto; bottom:50px; }.panel-right { top:14px; right:14px; width:260px; }
+.panel-left { top:14px; left:14px; }.panel-viewpoints { top:auto; bottom:14px; }.panel-right { top:14px; right:14px; width:260px; }
 .tileset-group,.viewpoint-group { margin-top:8px; }.tileset-title,.viewpoint-title { padding:5px; border-radius:5px; background:rgba(16,35,46,.08); font-weight:700; cursor:pointer; }.tileset-children,.viewpoint-children { margin-left:12px; }.tileset-item,.viewpoint-item { margin-top:5px; }.viewpoint-item button { width:100%; color:#1c2930; background:white; border-color:#ccd7dc; }
 .status-box { display:inline-block; width:9px; height:9px; margin-left:8px; border-radius:50%; }.status-loading{background:#f59e0b}.status-ready{background:#15803d}.status-error{background:#dc2626}.status-waiting{background:#7c3aed}.status-displaying{background:#84cc16}
 .clip-row { display:flex; align-items:center; gap:8px; margin-top:9px; }.clip-row input[type=range]{flex:1;min-width:70px}.clip-row input[type=number]{width:60px}.floating-panel small{color:#66757c}
 .scene-status { padding:5px 9px; border-radius:999px; color:#facd75; background:rgba(245,158,11,.12); font-size:12px; }
 .dialog { position:absolute; z-index:20; top:80px; left:50%; width:min(350px,90%); transform:translateX(-50%); padding:20px; border-radius:10px; color:#18242a; background:white; box-shadow:0 12px 40px rgba(0,0,0,.4); }.dialog[hidden]{display:none}.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.dialog h3{margin-top:0}
-@media (max-width:900px){html,body{overflow:auto}.workspace{grid-template-columns:1fr;grid-template-rows:50vh 70vh;height:auto;min-height:100%}.pane-header{height:auto;min-height:70px;padding:12px 14px}.panel-right{top:auto;right:14px;bottom:14px}.floating-panel{max-height:42%;width:190px}.panel-right{width:230px}}
+@media (max-width:900px){html,body{overflow:auto}.workspace{grid-template-columns:1fr;grid-template-rows:70vh 70vh;height:auto;min-height:100%}.pane-header{height:auto;min-height:70px;padding:12px 14px}.panel-right{top:auto;right:14px;bottom:14px}.floating-panel{max-height:42%;width:190px}.panel-right{width:230px}.device-controls{width:220px}.toolbar button{padding:7px 9px;font-size:12px}}
