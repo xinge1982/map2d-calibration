@@ -50,3 +50,7 @@ button.primary { color:#051411; background:var(--accent); border-color:var(--acc
 .scene-status { padding:5px 9px; border-radius:999px; color:#facd75; background:rgba(245,158,11,.12); font-size:12px; }
 .dialog { position:absolute; z-index:20; top:80px; left:50%; width:min(350px,90%); transform:translateX(-50%); padding:20px; border-radius:10px; color:#18242a; background:white; box-shadow:0 12px 40px rgba(0,0,0,.4); }.dialog[hidden]{display:none}.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}.dialog h3{margin-top:0}
 @media (max-width:900px){html,body{overflow:auto}.workspace{grid-template-columns:1fr;grid-template-rows:70vh 70vh;height:auto;min-height:100%}.pane-header{height:auto;min-height:70px;padding:12px 14px}.panel-right{top:auto;right:14px;bottom:14px}.floating-panel{max-height:42%;width:190px}.panel-right{width:230px}.device-controls{width:220px}.toolbar button{padding:7px 9px;font-size:12px}.mouse-coordinates{bottom:8px;gap:7px;font-size:10px}.device-model-actions{top:8px;gap:5px;font-size:10px}.device-model-actions button{padding:5px 7px;font-size:10px}}
+.cesium-infoBox {
+    top: 140px !important;
+    right: 14px !important;
+}
