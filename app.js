@@ -434,9 +434,9 @@
 				id: `device-point-${index}-${id}`,
 				position: Cesium.Cartesian3.fromDegrees(point.lng, point.lat, point.alt),
 				ellipsoid: {
-					radii: new Cesium.Cartesian3(0.3, 0.3, 0.3),
+					radii: new Cesium.Cartesian3(0.2, 0.2, 0.2),
 					material: Cesium.Color.ORANGE,
-					outline: true,
+					outline: false,
 					outlineColor: Cesium.Color.WHITE
 				},
 				label: {
@@ -471,7 +471,7 @@
 			selectedDevicePoint = point;
 			selectedDeviceEntities.forEach(entity => {
 				entity.ellipsoid.material = Cesium.Color.ORANGE;
-				entity.ellipsoid.radii = new Cesium.Cartesian3(0.3, 0.3, 0.3);
+				entity.ellipsoid.radii = new Cesium.Cartesian3(0.2, 0.2, 0.2);
 			});
 			const sameIdEntities = deviceEntitiesById.get(String(point.id)) || [];
 			const exactEntity = sameIdEntities.find(entity => {
@@ -481,7 +481,7 @@
 			selectedDeviceEntities = exactEntity ? [exactEntity] : sameIdEntities.slice(0, 1);
 			selectedDeviceEntities.forEach(entity => {
 				entity.ellipsoid.material = Cesium.Color.LIME;
-				entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
+				entity.ellipsoid.radii = new Cesium.Cartesian3(0.3, 0.3, 0.3);
 			});
 			if (selectedDeviceEntities.length) {
 				bindDeviceGizmo(selectedDeviceEntities[0]);
@@ -566,7 +566,7 @@
 			if (!entity) return;
 			selectedDeviceEntities = [entity];
 			entity.ellipsoid.material = Cesium.Color.LIME;
-			entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
+			entity.ellipsoid.radii = new Cesium.Cartesian3(0.2, 0.2, 0.2);
 			bindDeviceGizmo(entity);
 			window.dispatchEvent(new CustomEvent("devicepositionupdated", {
 				detail: {
@@ -621,11 +621,11 @@
 				selectedDevicePoint = metadata.point;
 				selectedDeviceEntities.forEach(item => {
 					item.ellipsoid.material = Cesium.Color.ORANGE;
-					item.ellipsoid.radii = new Cesium.Cartesian3(0.3, 0.3, 0.3);
+					item.ellipsoid.radii = new Cesium.Cartesian3(0.2, 0.2, 0.2);
 				});
 				selectedDeviceEntities = [entity];
 				entity.ellipsoid.material = Cesium.Color.LIME;
-				entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
+				entity.ellipsoid.radii = new Cesium.Cartesian3(0.2, 0.2, 0.2);
 				bindDeviceGizmo(entity);
 				updateDeviceModelActions();
 			} else {
