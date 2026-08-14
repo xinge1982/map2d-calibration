@@ -421,12 +421,41 @@
 					name: "隧道工作井1",
 					title: "G1503",
 
-					"lon": 121.78019701,
-					"lat": 31.11791166,
-					"height": 29.612,
-					"heading": 18.322,
-					"pitch": -21.232,
+					"lon": 121.77485292,
+					"lat": 31.13257311,
+					"height": 102.961,
+					"heading": 72.079,
+					"pitch": -80.725,
+					"roll": 0,
+					"clipValue": 15.5,
+					"enableHideFeaturesTileset": "tunnel",
+				},
+								{
+					id: "well2",
+					name: "隧道工作井2",
+					title: "G1503",
+
+					"lon": 121.77764509,
+					"lat": 31.12603142,
+					"height": 112.674,
+					"heading": 72.422,
+					"pitch": -85.347,
+					"roll": 0.001,
+					"clipValue": 13.1,
+					"enableHideFeaturesTileset": "tunnel",
+				},
+				{
+					id: "well3",
+					name: "隧道工作井3",
+					title: "G1503",
+
+					"lon": 121.77978549,
+					"lat": 31.11828564,
+					"height": 158.313,
+					"heading": 72.543,
+					"pitch": -69.578,
 					"roll": 360,
+					"clipValue": 15,
 					"enableHideFeaturesTileset": "tunnel",
 				},
 				{
@@ -1230,6 +1259,9 @@
 
 			if (point.enableHideFeaturesTileset && point.enableHideFeaturesTileset.length > 0) {
 				//TODO: setTilesetFeatureHide
+			}
+			if (point.clipValue) {
+				setTunnelClipZ(point.clipValue)
 			}
 		}
 
