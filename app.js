@@ -389,7 +389,7 @@
 					id: `device-point-${index}-${id}`,
 					position: Cesium.Cartesian3.fromDegrees(point.lng, point.lat, point.alt),
 					ellipsoid: {
-						radii: new Cesium.Cartesian3(1.5, 1.5, 1.5),
+						radii: new Cesium.Cartesian3(0.3, 0.3, 0.3),
 						material: Cesium.Color.ORANGE,
 						outline: true,
 						outlineColor: Cesium.Color.WHITE
@@ -417,12 +417,12 @@
 		function focusDeviceEntity(point) {
 			selectedDeviceEntities.forEach(entity => {
 				entity.ellipsoid.material = Cesium.Color.ORANGE;
-				entity.ellipsoid.radii = new Cesium.Cartesian3(1.5, 1.5, 1.5);
+				entity.ellipsoid.radii = new Cesium.Cartesian3(0.3, 0.3, 0.3);
 			});
 			selectedDeviceEntities = deviceEntitiesById.get(String(point.id)) || [];
 			selectedDeviceEntities.forEach(entity => {
 				entity.ellipsoid.material = Cesium.Color.LIME;
-				entity.ellipsoid.radii = new Cesium.Cartesian3(2.4, 2.4, 2.4);
+				entity.ellipsoid.radii = new Cesium.Cartesian3(0.5, 0.5, 0.5);
 			});
 			if (selectedDeviceEntities.length) {
 				viewer.flyTo(selectedDeviceEntities[0], {
