@@ -17,6 +17,7 @@
           <input id="deviceCsvInput" type="file" accept=".csv,text/csv" hidden>
           <button id="uploadPlanButton" class="primary" type="button">上传平面图</button>
           <button id="uploadDevicesButton" type="button">上传设备点位</button>
+          <button id="downloadDevicesButton" type="button" disabled>下载更新 CSV</button>
           <button id="resetPlanButton" type="button" disabled>复位视图</button>
         </div>
       </header>
@@ -84,6 +85,7 @@
     </section>
   </main>
   <script src="https://registry.npmmirror.com/cesium/1.127.0/files/Build/Cesium/Cesium.js"></script>
+  <script src="vendor/cesium-transform-controls.umd.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
